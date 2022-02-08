@@ -1,0 +1,7 @@
+PUT http://localhost:3001/api/persons/7
+Content-Type: application/json
+
+{
+    "name": "From vs code rest client",
+    "number": "34983243"
+}
