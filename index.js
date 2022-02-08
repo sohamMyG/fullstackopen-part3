@@ -28,6 +28,8 @@ let persons = [
 
 app.use(express.json())
 
+app.use(express.static('build'))
+
 const cors = require('cors')
 app.use(cors())
 
