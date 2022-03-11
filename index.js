@@ -1,7 +1,9 @@
+require('dotenv').config()
 const express = require('express')
 const morgan = require('morgan')
 const res = require('express/lib/response')
 const app = express()
+const PhoneRecord = require('./models/phoneRecord')
 
 let persons = [
     { 
@@ -26,11 +28,13 @@ let persons = [
     }
 ]
 
+
 app.use(express.json())
 
 app.use(express.static('build'))
 
 const cors = require('cors')
+
 app.use(cors())
 
 morgan.token('type',function(req,res){
@@ -40,7 +44,9 @@ app.use(morgan(':method :url :status :res[content-length] - :response-time ms :t
 
 
 app.get('/api/persons', (request, response) => {
-    response.json(persons)
+    PhoneRecord.find({}).then(notes => {
+        response.json(notes)
+    })
 })
 
 app.get('/info', (request, response) =>{
@@ -51,20 +57,23 @@ app.get('/info', (request, response) =>{
     `)
 })
 
-app.get('/api/persons/:id',(req,res)=>{
-    const id = Number(req.params.id)
-    const person = persons.find(p => p.id === id)
-    if(!person){
-        res.status(400).json({
-            error: 'content missing'
+app.get('/api/persons/:id',(req,res,next)=>{
+    
+    PhoneRecord.findById(req.params.id)
+        .then(result => {
+            if (result) {
+                res.json(result)
+            } 
+            else {
+            res.status(404).end()
+            }
         })
-    }
-    else{
-        res.json(person)
-    }
+        .catch(error => {
+            next(error)
+        })
 })
 
-app.post('/api/persons',(req,res)=>{
+app.post('/api/persons',(req,res,next)=>{
     const body = req.body
 
     if(!(body.name && body.number)){
@@ -78,25 +87,29 @@ app.post('/api/persons',(req,res)=>{
             error: "name must be unique"
         })
     }
-    
-    const id = Math.ceil(Math.random()*1000000)
-    const person={
-        id : id,
-        name : body.name,
-        number  : body.number
-    }
-    persons= persons.concat(person)
+    // PhoneRecord.find({name:body.name}).then(result => {
+    //     if(result.length!==0)
+    //     return res.status(400).json({
+    //         error: "name must be unique"
+    //     })
+    //     console.log(result)
+    // })
 
-    
-    return res.status(200).json(person)
+    const newRecord = new PhoneRecord({
+        name : body.name,
+        number : body.number
+    })
+    newRecord.save().then(result => {
+        res.json(result)
+    })
+    .catch(error => next(error))
     
 })
 
-app.put('/api/persons/:id',(req,res)=>{
-    const id = Number(req.params.id)
+app.put('/api/persons/:id',(req,res,next)=>{
     const body = req.body
     const person={
-        id : id,
+        id : body.id,
         name : body.name,
         number  : body.number
     }
@@ -105,26 +118,39 @@ app.put('/api/persons/:id',(req,res)=>{
             error: 'content-missing'
         })
     }
-    const index = persons.findIndex(p=>p.id===id)
-    persons[index]=person
-    console.log(index,persons[index])
-    persons = persons.map(p=>{
-        if(p.id===id){
-            return person
-        }
-        else return p
+    PhoneRecord.findByIdAndUpdate(req.params.id, person, { new: true,runValidators: true, context: 'query' })
+    .then(updatedRecord => {
+      res.json(updatedRecord)
     })
+    .catch(error => next(error))
     return res.status(200).json(person)
 })
 
 
-app.delete('/api/persons/:id',(req,res)=>{
-    const id = Number(req.params.id)
-    persons = persons.filter(p=>p.id !==id)
-    res.status(204).end()
+app.delete('/api/persons/:id',(req,res,next)=>{
+    PhoneRecord.findByIdAndRemove(req.params.id)
+    .then(result => {
+        console.log(result)
+        res.status(204).end()
+    })
+    .catch(error => next(error))
 })
 
-const PORT = process.env.PORT || 3001
+const PORT = process.env.PORT
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
 })
+
+const errorHandler = (error, request, response, next) => {
+    console.error(error.message)
+  
+    if (error.name === 'CastError') {
+      return response.status(400).send({ error: 'malformatted id' })
+    } else if (error.name === 'ValidationError') {
+        return response.status(400).json({ error: error.message })
+    }
+  
+    next(error)
+}
+
+app.use(errorHandler)
