@@ -16,21 +16,21 @@ const phoneSchema = new mongoose.Schema({
 
 const PhoneRecord = mongoose.model('PhoneRecord',phoneSchema)
 
-if(process.argv.length==3){
-    console.log("Phonebook:")
-    PhoneRecord.find({}).then(result =>{
+if(process.argv.length===3){
+    console.log('Phonebook:')
+    PhoneRecord.find({}).then(result => {
         result.forEach(record => {
             console.log(record.name,record.number)
         })
-        mongoose.connection.close()  
+        mongoose.connection.close()
     })
-    
+
 }
 
-if(process.argv.length==5){
+if(process.argv.length===5){
     const newRecord = new PhoneRecord({
         name : process.argv[3],
-        number : process.argv[4] 
+        number : process.argv[4]
     })
     newRecord.save().then(result => {
         console.log(`added ${result.name} ${result.number} to phonebook`)
